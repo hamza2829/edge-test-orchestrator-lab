@@ -10,3 +10,4 @@ build/
 artifacts/
 ci-review/
 *.sqlite*
+data/
