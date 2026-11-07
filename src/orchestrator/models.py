@@ -2,7 +2,14 @@
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, StrictBool, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    FiniteFloat,
+    StrictBool,
+    model_validator,
+)
 
 Name = Annotated[str, Field(pattern=r"^[a-zA-Z0-9_-]{1,80}$")]
 
