@@ -1,0 +1,25 @@
+scenarios:
+  - name: baseline
+    period_ms: 5
+    cycles: 20
+    cpus: 0.75
+  - name: cpu-stress
+    period_ms: 5
+    cycles: 20
+    work_ms: 1
+    stress_threads: 2
+    cpus: 0.25
+  - name: slower-period
+    period_ms: 20
+    cycles: 12
+    cpus: 0.75
+  - name: forced-overrun
+    period_ms: 2
+    cycles: 8
+    work_ms: 5
+    cpus: 0.75
+  - name: killed-container
+    period_ms: 5
+    cycles: 10000
+    cpus: 0.75
+    kill_after_ms: 25

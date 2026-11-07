@@ -1,0 +1,40 @@
+services:
+  cloud:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+    environment:
+      CLOUD_DB: /data/cloud.sqlite
+    ports:
+      - "127.0.0.1:8002:8000"
+    volumes:
+      - cloud-data:/data
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  edge:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+    command: [uvicorn, "orchestrator.edge:app", --host, "0.0.0.0", --port, "8000"]
+    environment:
+      EDGE_DB: /data/edge.sqlite
+      CLOUD_URL: http://cloud:8000
+    ports:
+      - "127.0.0.1:8001:8000"
+    volumes:
+      - edge-data:/data
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+volumes:
+  cloud-data:
+  edge-data:
