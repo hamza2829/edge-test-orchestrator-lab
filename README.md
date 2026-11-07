@@ -94,7 +94,27 @@ the cloud to check persistence. No timing threshold assumes a real-time runner.
 
 ## Measured results
 
-Final test counts and coverage will be copied from completed CI artifacts before delivery.
+The completed [measurement run](https://github.com/hamza2829/edge-test-orchestrator-lab/actions/runs/42393237885)
+reported the following results. The final documentation commit runs the same checks
+again. [Current workflow runs](https://github.com/hamza2829/edge-test-orchestrator-lab/actions/workflows/ci.yml)
+include the latest measurements in the `final-measurements` artifact.
+
+| Check | Passed cases | Line coverage |
+| --- | ---: | ---: |
+| C++ Google Test | 25 | 99.10% (110/111 target lines) |
+| Target process tests | 6 | Included in C++ coverage |
+| Python unit and HTTP integration tests | 71 | 99.44% (357/359 package lines) |
+| Docker Compose end to end test | 1 | Counted separately |
+| Total | 103 | Coverage reported separately by language |
+
+C++ coverage includes `src/target` and excludes Google Test and test code.
+Python line coverage includes `src/orchestrator` and excludes test code.
+The Python gate also measures branches; its combined statement and branch result
+was 99.08 percent. These figures are measured coverage, not proof of correctness.
+All 103 cases passed with no skipped cases. The Compose run verified five real
+target containers, cloud outage buffering, edge and cloud restart persistence,
+duplicate batch handling and an independently calculated cloud summary.
+
 The workflow uploads Google Test XML, pytest XML, C++ and Python coverage XML,
 target JSON logs, service logs, the cloud summary and a combined measurement record.
 
