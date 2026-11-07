@@ -79,6 +79,8 @@ class Measurement(Model):
                 raise ValueError("jitter_us must match the observed start interval")
             if previous and sample.scheduled_ns - previous.scheduled_ns != self.period_ms * 1000000:
                 raise ValueError("scheduled releases must follow the configured period")
+            if previous and sample.started_ns < previous.started_ns:
+                raise ValueError("monotonic start times must not go backwards")
             previous = sample
         return self
 

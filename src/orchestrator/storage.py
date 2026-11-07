@@ -4,6 +4,7 @@ import hashlib
 import json
 import math
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
 from threading import Lock
 
@@ -45,8 +46,14 @@ class Store:
                 );
             """)
 
+    @contextmanager
     def connect(self):
-        return sqlite3.connect(self.path, timeout=5)
+        db = sqlite3.connect(self.path, timeout=5)
+        try:
+            with db:
+                yield db
+        finally:
+            db.close()
 
     def _insert(self, table, measurements):
         accepted = 0
