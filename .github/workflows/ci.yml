@@ -1,0 +1,128 @@
+name: Edge test lab CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cpp:
+    name: C++ build and tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install test tools on runner
+        run: python -m pip install -e '.[dev]'
+      - name: Build C++20 with warnings as errors
+        run: |
+          cmake -S . -B build -DENABLE_COVERAGE=ON -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build --parallel 2
+      - name: Static analysis
+        run: |
+          if command -v clang-tidy-18 >/dev/null; then
+            clang-tidy-18 src/target/timing.cpp src/target/main.cpp -p build --warnings-as-errors='*'
+          else
+            clang-tidy src/target/timing.cpp src/target/main.cpp -p build --warnings-as-errors='*'
+          fi
+      - name: Google Test and target process tests
+        run: |
+          mkdir -p artifacts/cpp
+          build/target_tests --gtest_output=xml:artifacts/cpp/gtest.xml
+          pytest tests/target_cli --junitxml=artifacts/cpp/target-cli.xml
+          gcovr --root . --filter 'src/target/' --xml-pretty --output artifacts/cpp/coverage.xml --txt --fail-under-line 85
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cpp-results
+          path: artifacts/cpp/
+  python:
+    name: Python tests and coverage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: python -m pip install -e '.[dev]'
+      - name: Python lint and source text check
+        run: |
+          ruff check .
+          python scripts/check_text.py
+      - name: Unit and HTTP integration tests
+        run: |
+          mkdir -p artifacts/python
+          pytest tests/python --cov --cov-report=term-missing --cov-report=xml:artifacts/python/coverage.xml --junitxml=artifacts/python/junit.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: python-results
+          path: artifacts/python/
+  e2e:
+    name: Docker Compose end to end
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: python -m pip install -e '.[dev]'
+      - name: Build target and start services on runner
+        run: |
+          docker build -f Dockerfile.target -t edge-lab-target:ci .
+          docker compose up --build --detach --wait --wait-timeout 90
+      - name: Real targets, outage, restart and cloud summary
+        run: |
+          mkdir -p artifacts/e2e
+          pytest tests/e2e -m e2e --junitxml=artifacts/e2e/junit.xml
+      - name: Collect service logs
+        if: always()
+        run: |
+          mkdir -p artifacts/e2e
+          docker compose logs --no-color > artifacts/e2e/compose.log
+          docker compose ps --all > artifacts/e2e/compose-ps.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: compose-results
+          path: artifacts/e2e/
+      - name: Clean runner containers and volumes
+        if: always()
+        run: docker compose down --volumes --remove-orphans
+  measurements:
+    name: Combine measured results
+    needs: [cpp, python, e2e]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: cpp-results
+          path: artifacts/cpp
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-results
+          path: artifacts/python
+      - uses: actions/download-artifact@v4
+        with:
+          name: compose-results
+          path: artifacts/e2e
+      - run: python scripts/collect_metrics.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: final-measurements
+          path: artifacts/metrics.json
